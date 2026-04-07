@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import List
@@ -9,8 +10,8 @@ from typing import List
 # Allows running: python examples/basic_demo.py
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from lck.config import DEFAULT_STRONG_MODEL
 from lck.cost_tracker import CostTracker, estimate_request_cost
+from lck.local_provider import LocalOllamaProvider
 from lck.router import CostOptimizedRouter, MockLLMProvider
 
 
@@ -24,7 +25,15 @@ PROMPTS: List[str] = [
 
 
 def run_demo() -> None:
-    provider = MockLLMProvider()
+    use_local_ollama = os.getenv("LCK_USE_LOCAL_OLLAMA", "false").lower() == "true"
+    if use_local_ollama:
+        base_url = os.getenv("LCK_OLLAMA_BASE_URL", "http://localhost:11434")
+        provider = LocalOllamaProvider(base_url=base_url)
+        print(f"Provider: LocalOllamaProvider ({base_url})")
+    else:
+        provider = MockLLMProvider()
+        print("Provider: MockLLMProvider (offline demo)")
+
     router_tracker = CostTracker(log_path="logs/optimized_requests.jsonl")
     router = CostOptimizedRouter(provider=provider, tracker=router_tracker)
 
@@ -35,9 +44,9 @@ def run_demo() -> None:
     print("-" * 60)
 
     for prompt in PROMPTS:
-        naive_result = provider.generate(prompt=prompt, model=DEFAULT_STRONG_MODEL)
+        naive_result = provider.generate(prompt=prompt, model=router.strong_model)
         naive_cost = estimate_request_cost(
-            DEFAULT_STRONG_MODEL,
+            router.strong_model,
             int(naive_result["input_tokens"]),
             int(naive_result["output_tokens"]),
         )
