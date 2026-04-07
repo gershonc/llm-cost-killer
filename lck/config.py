@@ -1,5 +1,6 @@
 """Configuration defaults for LLM Cost Killer."""
 
+import os
 from dataclasses import dataclass, field
 from typing import Dict, Set
 
@@ -39,8 +40,8 @@ class TurboQuantConfig:
     max_words_after_compression: int = 40
 
 
-DEFAULT_CHEAP_MODEL = "gpt-5.4-mini"
-DEFAULT_STRONG_MODEL = "gpt-5.4"
+DEFAULT_CHEAP_MODEL = os.getenv("LCK_CHEAP_MODEL", "tinyllama")
+DEFAULT_STRONG_MODEL = os.getenv("LCK_STRONG_MODEL", "qwen3.5:4b")
 
 # Prices are USD per 1M tokens.
 MODEL_PRICING: Dict[str, Dict[str, float]] = {

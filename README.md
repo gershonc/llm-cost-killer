@@ -112,6 +112,46 @@ def generate(prompt: str, model: str) -> dict:
 
 This keeps the MVP simple today while making real OpenAI calls easy to add later.
 
+## Using local LLMs (Ollama)
+
+You can run the same router with local models through Ollama.
+
+1. Start Ollama and pull models:
+
+```bash
+ollama pull tinyllama
+ollama pull qwen3.5:4b
+```
+
+2. Set env vars:
+
+```bash
+export LCK_USE_LOCAL_OLLAMA=true
+export LCK_OLLAMA_BASE_URL=http://localhost:11434
+export LCK_CHEAP_MODEL=tinyllama
+export LCK_STRONG_MODEL=qwen3.5:4b
+```
+
+3. Run demo:
+
+```bash
+python examples/basic_demo.py
+```
+
+Or wire manually:
+
+```python
+from lck.local_provider import LocalOllamaProvider
+from lck.router import CostOptimizedRouter
+
+provider = LocalOllamaProvider(base_url="http://localhost:11434")
+router = CostOptimizedRouter(
+    provider=provider,
+    cheap_model="tinyllama",
+    strong_model="qwen3.5:4b",
+)
+```
+
 ## Roadmap
 
 - Add real provider integration (OpenAI-first)
