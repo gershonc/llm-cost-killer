@@ -1,0 +1,72 @@
+"""Basic demo comparing naive strong usage vs routed usage."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import List
+
+# Allows running: python examples/basic_demo.py
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from lck.config import DEFAULT_STRONG_MODEL
+from lck.cost_tracker import CostTracker, estimate_request_cost
+from lck.router import CostOptimizedRouter, MockLLMProvider
+
+
+PROMPTS: List[str] = [
+    "classify this support ticket",
+    "summarize this invoice",
+    "extract payment terms",
+    "compare risks in this contract",
+    "write Python code to parse a CSV",
+]
+
+
+def run_demo() -> None:
+    provider = MockLLMProvider()
+    router_tracker = CostTracker(log_path="logs/optimized_requests.jsonl")
+    router = CostOptimizedRouter(provider=provider, tracker=router_tracker)
+
+    naive_total = 0.0
+    optimized_total = 0.0
+
+    print("LLM Cost Killer MVP Demo")
+    print("-" * 60)
+
+    for prompt in PROMPTS:
+        naive_result = provider.generate(prompt=prompt, model=DEFAULT_STRONG_MODEL)
+        naive_cost = estimate_request_cost(
+            DEFAULT_STRONG_MODEL,
+            int(naive_result["input_tokens"]),
+            int(naive_result["output_tokens"]),
+        )
+        naive_total += naive_cost
+
+        optimized_result = router.run(prompt)
+        optimized_total += float(optimized_result["estimated_cost"])
+
+        print(f"Prompt: {prompt}")
+        print(
+            "  optimized -> selected={selected} final={final} fallback={fallback} "
+            "cost=${cost:.6f}".format(
+                selected=optimized_result["selected_model"],
+                final=optimized_result["final_model"],
+                fallback=optimized_result["fallback_used"],
+                cost=optimized_result["estimated_cost"],
+            )
+        )
+
+    savings = max(0.0, naive_total - optimized_total)
+    savings_pct = (savings / naive_total * 100.0) if naive_total else 0.0
+
+    print("-" * 60)
+    print("Session summary")
+    print(f"  naive strong-only cost: ${naive_total:.6f}")
+    print(f"  optimized routed cost:  ${optimized_total:.6f}")
+    print(f"  estimated savings:      ${savings:.6f} ({savings_pct:.2f}%)")
+    print(f"  fallback count:         {router_tracker.session_summary()['fallback_count']}")
+
+
+if __name__ == "__main__":
+    run_demo()
