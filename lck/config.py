@@ -30,8 +30,17 @@ class FallbackSettings:
     enabled: bool = True
 
 
-DEFAULT_CHEAP_MODEL = "gpt-4.1-mini"
-DEFAULT_STRONG_MODEL = "gpt-4.1"
+@dataclass(frozen=True)
+class TurboQuantConfig:
+    """MVP settings for TurboQuant-like compression."""
+
+    enabled: bool = True
+    min_chars_to_compress: int = 10
+    max_words_after_compression: int = 40
+
+
+DEFAULT_CHEAP_MODEL = "gpt-5.4-mini"
+DEFAULT_STRONG_MODEL = "gpt-5.4"
 
 # Prices are USD per 1M tokens.
 MODEL_PRICING: Dict[str, Dict[str, float]] = {
@@ -41,3 +50,4 @@ MODEL_PRICING: Dict[str, Dict[str, float]] = {
 
 ROUTING = RoutingSettings()
 FALLBACK = FallbackSettings()
+TURBOQUANT = TurboQuantConfig()

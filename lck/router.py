@@ -10,8 +10,10 @@ from lck.config import (
     DEFAULT_STRONG_MODEL,
     FALLBACK,
     ROUTING,
+    TURBOQUANT,
 )
 from lck.cost_tracker import CostTracker
+from lck.turboquant import TurboQuantSettings, compress_prompt
 
 
 class LLMProvider(Protocol):
@@ -87,11 +89,17 @@ class CostOptimizedRouter:
         cheap_model: str = DEFAULT_CHEAP_MODEL,
         strong_model: str = DEFAULT_STRONG_MODEL,
         tracker: Optional[CostTracker] = None,
+        turboquant_settings: Optional[TurboQuantSettings] = None,
     ) -> None:
         self.provider = provider or MockLLMProvider(cheap_model=cheap_model, strong_model=strong_model)
         self.cheap_model = cheap_model
         self.strong_model = strong_model
         self.tracker = tracker or CostTracker()
+        self.turboquant_settings = turboquant_settings or TurboQuantSettings(
+            enabled=TURBOQUANT.enabled,
+            min_chars_to_compress=TURBOQUANT.min_chars_to_compress,
+            max_words_after_compression=TURBOQUANT.max_words_after_compression,
+        )
 
     def choose_model(self, prompt: str) -> str:
         """Choose cheap or strong model from simple complexity heuristics."""
@@ -109,7 +117,16 @@ class CostOptimizedRouter:
     def run(self, prompt: str) -> Dict[str, object]:
         """Run a request with routing + fallback and log request cost."""
         selected_model = self.choose_model(prompt)
-        result = self.provider.generate(prompt=prompt, model=selected_model)
+        request_prompt = prompt
+        turboquant_used = False
+        saved_input_tokens_estimate = 0
+        if selected_model == self.cheap_model:
+            compression = compress_prompt(prompt, settings=self.turboquant_settings)
+            request_prompt = str(compression["compressed_prompt"])
+            turboquant_used = bool(compression["turboquant_used"])
+            saved_input_tokens_estimate = int(compression["input_tokens_saved_estimate"])
+
+        result = self.provider.generate(prompt=request_prompt, model=selected_model)
 
         fallback_used = False
         final_model = selected_model
@@ -126,14 +143,19 @@ class CostOptimizedRouter:
             input_tokens=int(result.get("input_tokens", 0)),
             output_tokens=int(result.get("output_tokens", 0)),
             fallback_used=fallback_used,
+            turboquant_used=turboquant_used,
+            input_tokens_saved_estimate=saved_input_tokens_estimate,
         )
         return {
             "prompt": prompt,
+            "request_prompt": request_prompt,
             "selected_model": selected_model,
             "final_model": final_model,
             "response": str(result.get("text", "")),
             "error": result.get("error"),
             "fallback_used": fallback_used,
+            "turboquant_used": turboquant_used,
+            "input_tokens_saved_estimate": saved_input_tokens_estimate,
             "input_tokens": record.input_tokens,
             "output_tokens": record.output_tokens,
             "estimated_cost": record.estimated_cost,

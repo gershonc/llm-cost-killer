@@ -7,6 +7,7 @@ LLM Cost Killer is a lightweight Python package that routes requests between a c
 ## Features
 
 - Smart rule-based routing (`cheap` for simple prompts, `strong` for complex prompts)
+- TurboQuant-style prompt compression before cheap-model calls
 - Automatic fallback to strong model when cheap output is weak or errors
 - Per-request cost estimation from model pricing
 - JSONL request logging for easy analysis
@@ -93,6 +94,7 @@ Session summary
    - input/output tokens
    - estimated cost
    - fallback used
+   - turboquant used + saved input token estimate
 
 ## Plugging in real API calls later
 

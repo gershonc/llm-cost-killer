@@ -32,6 +32,8 @@ class RequestRecord:
     output_tokens: int
     estimated_cost: float
     fallback_used: bool
+    turboquant_used: bool
+    input_tokens_saved_estimate: int
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -42,6 +44,8 @@ class RequestRecord:
             "output_tokens": self.output_tokens,
             "estimated_cost": self.estimated_cost,
             "fallback_used": self.fallback_used,
+            "turboquant_used": self.turboquant_used,
+            "input_tokens_saved_estimate": self.input_tokens_saved_estimate,
         }
 
 
@@ -59,6 +63,8 @@ class CostTracker:
         input_tokens: int,
         output_tokens: int,
         fallback_used: bool,
+        turboquant_used: bool = False,
+        input_tokens_saved_estimate: int = 0,
     ) -> RequestRecord:
         """Create and persist a request record."""
         preview = prompt.strip().replace("\n", " ")[:80]
@@ -70,6 +76,8 @@ class CostTracker:
             output_tokens=output_tokens,
             estimated_cost=estimate_request_cost(chosen_model, input_tokens, output_tokens),
             fallback_used=fallback_used,
+            turboquant_used=turboquant_used,
+            input_tokens_saved_estimate=input_tokens_saved_estimate,
         )
         self.records.append(record)
         self._append_jsonl(record)
@@ -81,6 +89,8 @@ class CostTracker:
         total_output = sum(r.output_tokens for r in self.records)
         total_cost = round(sum(r.estimated_cost for r in self.records), 8)
         fallback_count = sum(1 for r in self.records if r.fallback_used)
+        turboquant_count = sum(1 for r in self.records if r.turboquant_used)
+        saved_input_tokens = sum(r.input_tokens_saved_estimate for r in self.records)
         by_model: Dict[str, int] = {}
         for record in self.records:
             by_model[record.chosen_model] = by_model.get(record.chosen_model, 0) + 1
@@ -90,6 +100,8 @@ class CostTracker:
             "total_output_tokens": total_output,
             "total_estimated_cost": total_cost,
             "fallback_count": fallback_count,
+            "turboquant_count": turboquant_count,
+            "saved_input_tokens_estimate": saved_input_tokens,
             "requests_by_model": by_model,
         }
 
